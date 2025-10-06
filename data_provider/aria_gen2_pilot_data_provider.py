@@ -776,6 +776,12 @@ class AriaGen2PilotDataProvider:
             device_start_ns, device_end_ns
         )
 
+    def get_diarization_data_total_number(self) -> int:
+        """Get total number of diarization entries."""
+        if self.diarization_data_provider_ is None:
+            raise RuntimeError("Diarization data provider was not initialized.")
+        return self.diarization_data_provider_.get_diarization_data_total_number()
+
     # =======================================================
     #              Egocentric Voxel Lifting API
     # =======================================================

@@ -50,6 +50,10 @@ class DiarizationDataProvider:
             raise RuntimeError(
                 f"Failed to load diarization data from {self.data_path}: {e}"
             )
+        if not self.start_timestamp_ns_list:
+            raise RuntimeError(
+                "No diarization data found, can not initialize DiarizationDataProvider."
+            )
 
     def get_diarization_data_by_timestamp(
         self, timestamp_ns: int
@@ -97,3 +101,6 @@ class DiarizationDataProvider:
             if start_timestamp_ns <= data.end_timestamp_ns:
                 result.append(data)
         return result
+
+    def get_diarization_data_total_number(self) -> int:
+        return len(self.diarization_data)
