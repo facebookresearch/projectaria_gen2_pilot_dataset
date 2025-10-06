@@ -76,20 +76,7 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
 
     def tearDown(self):
         """Clean up temporary files."""
-        import os
-
         os.unlink(self.temp_file.name)
-
-    def test_data_loading_and_basic_structure(self):
-        """Test that data loads correctly and basic structure is preserved."""
-        # Check data was loaded
-        self.assertTrue(self.provider.has_hoi_data())
-        self.assertEqual(self.provider.get_hoi_total_number(), 2)  # 2 unique timestamps
-
-        # Check timestamp conversion (image_id * 1e6)
-        expected_timestamps = [2620886000000, 2620887000000]  # image_id * 1e6
-        actual_timestamps = self.provider.get_hoi_timestamps_ns()
-        self.assertEqual(set(actual_timestamps), set(expected_timestamps))
 
     def test_get_hoi_data_by_timestamp_ns(self):
         """Test querying by timestamp."""
@@ -172,11 +159,6 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
         # Should return data from timestamp 2620886000000 (the first after query)
         self.assertEqual(data_after[0].timestamp_ns, 2620886000000)
 
-    def test_metadata_apis(self):
-        """Test metadata and availability APIs."""
-        # Test availability checks
-        self.assertTrue(self.provider.has_hoi_data())
-
     def test_data_structure_validation(self):
         """Test that loaded data structures are correctly formed."""
         timestamp_ns = 2620886000000
@@ -229,29 +211,12 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
         empty_file.close()
 
         try:
-            empty_provider = HandObjectInteractionDataProvider(empty_file.name)
-
-            # Test empty data provider
-            self.assertFalse(empty_provider.has_hoi_data())
-            self.assertEqual(empty_provider.get_hoi_total_number(), 0)
-            self.assertEqual(len(empty_provider.get_hoi_timestamps_ns()), 0)
-            # Can't test get_all_hoi_data() since it was removed
-            self.assertEqual(len(empty_provider.get_hoi_timestamps_ns()), 0)
-
-            # Test queries return None/empty
-            data = empty_provider.get_hoi_data_by_timestamp_ns(123456)
-            self.assertIsNone(data)
-
+            with self.assertRaises(RuntimeError):
+                HandObjectInteractionDataProvider(empty_file.name)
         finally:
-            import os
-
             os.unlink(empty_file.name)
 
     def test_missing_file_handling(self):
         """Test behavior with missing file."""
-        missing_provider = HandObjectInteractionDataProvider("/nonexistent/path.json")
-
-        # Should handle gracefully
-        self.assertFalse(missing_provider.has_hoi_data())
-        self.assertEqual(missing_provider.get_hoi_total_number(), 0)
-        self.assertIsNone(missing_provider.get_hoi_data_by_timestamp_ns(123456))
+        with self.assertRaises(FileNotFoundError):
+            HandObjectInteractionDataProvider("/nonexistent/path.json")

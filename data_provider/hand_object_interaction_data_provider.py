@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from projectaria_tools.core.sensor_data import TimeQueryOptions
 
@@ -13,7 +13,7 @@ from .aria_gen2_pilot_dataset_data_types import (
     HandObjectInteractionData,
     HandObjectInteractionDataRaw,
 )
-from .utils import find_data_by_timestamp_ns
+from .utils import find_timestamp_index_by_time_query_option
 
 
 class HandObjectInteractionDataProvider:
@@ -28,17 +28,16 @@ class HandObjectInteractionDataProvider:
         - category_id: 1=left_hand, 2=right_hand, 3=interacting_object
         - timestamp_ns = image_id * 1e6
         """
-        # Aria-style timestamp-indexed data for efficient queries
-        self.interaction_data_list: List[
-            Tuple[int, List[HandObjectInteractionDataRaw]]
-        ] = []
+        # Store data and timestamps in separate lists following the standard pattern
+        self.hoi_data_list: List[List[HandObjectInteractionDataRaw]] = []
+        self.timestamps_ns: List[int] = []
 
         self._load_data(data_path)
 
     def _load_data(self, data_path: str) -> None:
         """Load hand-object interaction JSON and build timestamp-indexed data."""
         if not os.path.exists(data_path):
-            return
+            raise FileNotFoundError(f"File not found: {data_path}")
 
         try:
             with open(data_path, "r") as f:
@@ -48,9 +47,6 @@ class HandObjectInteractionDataProvider:
                 raise ValueError(
                     "hand-object interaction results not an array of objects"
                 )
-            if len(annotations) == 0:
-                return
-
             temp_data: Dict[int, List[HandObjectInteractionDataRaw]] = {}
 
             for annotation in annotations:
@@ -77,24 +73,18 @@ class HandObjectInteractionDataProvider:
 
                 temp_data.setdefault(timestamp_ns, []).append(hoi_data)
 
-            self.interaction_data_list = [
-                (ts, interactions) for ts, interactions in sorted(temp_data.items())
-            ]
+            sorted_temp_data = sorted(temp_data.items())
+            self.hoi_data_list = [interactions for _, interactions in sorted_temp_data]
+            self.timestamps_ns = [ts for ts, _ in sorted_temp_data]
 
-        except (
-            FileNotFoundError,
-            json.JSONDecodeError,
-            KeyError,
-            ValueError,
-            AssertionError,
-        ) as e:
+        except Exception as e:
             raise RuntimeError(
                 f"Failed to load hand-object interaction data from {data_path}: {e}"
             )
-
-    # ================================================
-    # Core Query APIs
-    # ================================================
+        if len(self.timestamps_ns) == 0:
+            raise RuntimeError(
+                f"No hand-object interaction data found in {data_path}, can not initialize HandObjectInteractionDataProvider."
+            )
 
     def get_hoi_data_by_timestamp_ns(
         self,
@@ -102,34 +92,20 @@ class HandObjectInteractionDataProvider:
         time_query_options: TimeQueryOptions = TimeQueryOptions.CLOSEST,
     ) -> Optional[List[HandObjectInteractionData]]:
         """Get all interactions at timestamp (hands + objects)."""
-        undecoded_data = find_data_by_timestamp_ns(
-            self.interaction_data_list, timestamp_ns, time_query_options
+        index = find_timestamp_index_by_time_query_option(
+            self.timestamps_ns, timestamp_ns, time_query_options
         )
-        if undecoded_data is None:
-            return None
-        return rle_utils.convert_to_decoded_format(undecoded_data)
+        return self.get_hoi_data_by_index(index)
 
     def get_hoi_data_by_index(
         self, index: int
     ) -> Optional[List[HandObjectInteractionData]]:
         """Get interactions by index."""
-        if 0 <= index < len(self.interaction_data_list):
-            undecoded_data = self.interaction_data_list[index][1]
+        if 0 <= index < len(self.hoi_data_list):
+            undecoded_data = self.hoi_data_list[index]
             return rle_utils.convert_to_decoded_format(undecoded_data)
         return None
 
-    # ================================================
-    # Metadata APIs
-    # =========================================
-
-    def get_hoi_timestamps_ns(self) -> List[int]:
-        """Get all interaction timestamps."""
-        return [timestamp for timestamp, _ in self.interaction_data_list]
-
     def get_hoi_total_number(self) -> int:
         """Get total number of interaction timestamps."""
-        return len(self.interaction_data_list)
-
-    def has_hoi_data(self) -> bool:
-        """Check if interaction data exists."""
-        return len(self.interaction_data_list) > 0
+        return len(self.hoi_data_list)

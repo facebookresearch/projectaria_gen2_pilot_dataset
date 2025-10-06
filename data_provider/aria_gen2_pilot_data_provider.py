@@ -871,14 +871,6 @@ class AriaGen2PilotDataProvider:
             )
         return self.hand_object_interaction_data_provider_.get_hoi_data_by_index(index)
 
-    def get_hoi_timestamps_ns(self) -> List[int]:
-        """Get all hand-object interaction timestamps."""
-        if self.hand_object_interaction_data_provider_ is None:
-            raise RuntimeError(
-                "Hand Object Interaction data provider was not initialized."
-            )
-        return self.hand_object_interaction_data_provider_.get_hoi_timestamps_ns()
-
     def get_hoi_total_number(self) -> int:
         """Get total number of hand-object interaction timestamps."""
         if self.hand_object_interaction_data_provider_ is None:
@@ -889,11 +881,7 @@ class AriaGen2PilotDataProvider:
 
     def has_hoi_data(self) -> bool:
         """Check if hand-object interaction data exists."""
-        if self.hand_object_interaction_data_provider_ is None:
-            raise RuntimeError(
-                "Hand Object Interaction data provider was not initialized."
-            )
-        return self.hand_object_interaction_data_provider_.has_hoi_data()
+        return self.hand_object_interaction_data_provider_ is not None
 
     # =======================================================
     #                Foundation Stereo API
