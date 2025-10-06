@@ -71,13 +71,13 @@ _REGISTRY = {
         plot_3d_size=0.003,
     ),
     PlotEntity.HOI_LEFT_HAND: PlotStyle(
-        label="hoi_left_hand", color=[255, 255, 150, 128]
+        label="hoi_left_hand", color=plot_color.BLUE + [128]
     ),
     PlotEntity.HOI_RIGHT_HAND: PlotStyle(
         label="hoi_right_hand", color=[150, 255, 150, 128]
     ),
     PlotEntity.HOI_INTERACTING_OBJECT: PlotStyle(
-        label="hoi_interacting_object", color=plot_color.BLUE + [128]
+        label="hoi_interacting_object", color=plot_color.ORANGE + [128]
     ),
     PlotEntity.DIARIZATION_TEXT: PlotStyle(
         label="diarization",
