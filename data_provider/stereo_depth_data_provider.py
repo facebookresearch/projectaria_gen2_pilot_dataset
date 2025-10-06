@@ -141,6 +141,10 @@ class StereoDepthDataProvider:
             raise RuntimeError(
                 f"Failed to load depth camera data from {json_path}: {e}"
             )
+        if not self.timestamps_ns:
+            raise RuntimeError(
+                "No depth camera data found, can not initialize FoundationStereoDataProvider."
+            )
 
     def _validate_subfolder(self, subfolder_name: str) -> List[str]:
         """Validate that a subfolder exists and contains PNG files."""
