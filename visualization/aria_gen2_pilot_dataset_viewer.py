@@ -82,7 +82,6 @@ def main():
     # Create and initialize visualizer
     config = AriaGen2PilotViewerConfig()
     visualizer = AriaGen2PilotDataVisualizer(data_provider, config)
-    visualizer.initialize_rerun_and_blueprint()
 
     logger.info("Initializing visualization...")
     visualizer.initialize_rerun_and_blueprint()

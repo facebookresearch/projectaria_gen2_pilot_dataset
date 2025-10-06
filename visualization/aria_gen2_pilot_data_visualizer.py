@@ -165,7 +165,7 @@ class AriaGen2PilotDataVisualizer:
         return slam_image_height / rgb_image_height
 
     def plot_static_components(self):
-        """Plot static components, including device extrinsics and semidence point cloud."""
+        """Plot static components, including device extrinsics and semidense point cloud."""
 
         # Plot device extrinsics
         self.plot_device_extrinsics()
@@ -204,7 +204,7 @@ class AriaGen2PilotDataVisualizer:
             1 / vrs_data_provider.get_nominal_rate_hz(rgb_stream_id) * 1e9
         )
 
-        # Plot staic components
+        # Plot static components
         self.plot_static_components()
 
         for data in vrs_data_provider.deliver_queued_sensor_data(deliver_option):
