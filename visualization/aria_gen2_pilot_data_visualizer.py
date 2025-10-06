@@ -247,7 +247,7 @@ class AriaGen2PilotDataVisualizer:
                     heart_rate_data = self.pd_provider.get_heart_rate_by_timestamp_ns(
                         device_time_ns, TimeDomain.DEVICE_TIME
                     )
-                    self.plot_heart_rate_bpm(heart_rate_data)
+                    self.plot_heart_rate_bpm(heart_rate_data, device_time_ns)
 
                 # plot hand object interaction data
                 if self.pd_provider.has_hoi_data():
@@ -547,10 +547,18 @@ class AriaGen2PilotDataVisualizer:
             )
 
     # === Algorithm related plotting functions ===
-    def plot_heart_rate_bpm(self, heart_rate_data: HeartRateData):
-        if heart_rate_data is None or (
-            self.last_heart_rate_data
-            and heart_rate_data.timestamp_ns == self.last_heart_rate_data.timestamp_ns
+    def plot_heart_rate_bpm(
+        self, heart_rate_data: HeartRateData, query_timestamp_ns: int
+    ):
+        if (
+            heart_rate_data is None
+            or abs(heart_rate_data.timestamp_ns - query_timestamp_ns)
+            > self.rgb_frame_interval_ns / 2
+            or (
+                self.last_heart_rate_data
+                and heart_rate_data.timestamp_ns
+                == self.last_heart_rate_data.timestamp_ns
+            )
         ):
             return
         self.last_heart_rate_data = heart_rate_data
@@ -832,8 +840,6 @@ class AriaGen2PilotDataVisualizer:
         # Clear previous depth image
         # Set up depth camera in world coordinate system
         plot_style = get_plot_style(PlotEntity.STEREO_DEPTH)
-        rr.log(f"world/{plot_style.label}", rr.Clear.recursive())
-
         if depth_map is None or camera_intrinsics_and_pose is None:
             return
 
@@ -904,6 +910,23 @@ class AriaGen2PilotDataVisualizer:
         query_timestamp_ns: int,
     ) -> None:
         """Plot the stereo depth data."""
+        plot_style = get_plot_style(PlotEntity.STEREO_DEPTH)
+        rr.log(
+            "depth_image",
+            rr.Clear.recursive(),
+        )
+        rr.log(
+            "rectified_slam_front_left",
+            rr.Clear.recursive(),
+        )
+        rr.log(
+            f"world/{plot_style.label}",
+            rr.Clear.recursive(),
+        )
+        rr.log(
+            f"world/{plot_style.label}",
+            rr.Clear.recursive(),
+        )
         if (
             depth_map is None
             or rectified_slam_front_left_image is None

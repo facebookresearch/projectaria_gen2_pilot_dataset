@@ -43,7 +43,7 @@ class EgocentricVoxelLiftingDataProvider:
         self,
         timestamp_ns: int,
         time_query_options: TimeQueryOptions = TimeQueryOptions.CLOSEST,
-    ) -> Optional[Dict[int, BoundingBox3D]]:
+    ) -> Optional[Dict[int, BoundingBox3D]]:  # [Dict[instance_id, BoundingBox3D]]
         bbox3d_with_dt = (
             self.adt_gt_provider.get_object_3d_boundingboxes_by_timestamp_ns(
                 timestamp_ns,
