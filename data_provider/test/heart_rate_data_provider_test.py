@@ -119,41 +119,6 @@ class TestHeartRateDataProvider(unittest.TestCase):
         )
         self.assertIsNone(heart_rate_data)
 
-    def test_get_heart_rate_all_data(self):
-        """Test getting all heart rate data."""
-        provider = HeartRateDataProvider(self.temp_file.name)
-
-        all_data = provider.get_heart_rate_all_data()
-        self.assertEqual(len(all_data), 5)
-
-        # Verify sorted order
-        expected_data = [
-            (1000000000, 72),
-            (2000000000, 75),
-            (3000000000, 68),
-            (4000000000, 80),
-            (5000000000, 65),
-        ]
-
-        for i, (expected_ts, expected_hr) in enumerate(expected_data):
-            self.assertEqual(all_data[i].timestamp_ns, expected_ts)
-            self.assertEqual(all_data[i].heart_rate_bpm, expected_hr)
-
-    def test_get_heart_rate_timestamps_ns(self):
-        """Test getting all heart rate timestamps."""
-        provider = HeartRateDataProvider(self.temp_file.name)
-
-        timestamps = provider.get_heart_rate_timestamps_ns()
-        expected_timestamps = [
-            1000000000,
-            2000000000,
-            3000000000,
-            4000000000,
-            5000000000,
-        ]
-
-        self.assertEqual(timestamps, expected_timestamps)
-
     def test_get_heart_rate_total_number(self):
         """Test getting total number of heart rate entries."""
         provider = HeartRateDataProvider(self.temp_file.name)

@@ -729,23 +729,11 @@ class AriaGen2PilotDataProvider:
             device_timestamp_ns, time_query_options
         )
 
-    def get_heart_rate_timestamps_ns(self) -> List[int]:
-        """Get all heart rate timestamps."""
-        if self.heart_rate_data_provider_ is None:
-            raise RuntimeError("Heart Rate data provider was not initialized.")
-        return self.heart_rate_data_provider_.get_heart_rate_timestamps_ns()
-
     def get_heart_rate_total_number(self) -> int:
         """Get total number of heart rate entries."""
         if self.heart_rate_data_provider_ is None:
             raise RuntimeError("Heart Rate data provider was not initialized.")
         return self.heart_rate_data_provider_.get_heart_rate_total_number()
-
-    def get_heart_rate_all_data(self) -> List[HeartRateData]:
-        """Get all heart rate data."""
-        if self.heart_rate_data_provider_ is None:
-            raise RuntimeError("Heart Rate data provider was not initialized.")
-        return self.heart_rate_data_provider_.get_heart_rate_all_data()
 
     # =======================================================
     #                    Diarization API
