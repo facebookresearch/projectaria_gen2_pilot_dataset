@@ -80,12 +80,19 @@ class AriaGen2PilotDataVisualizer:
             0  # set later, rgb_frame_interval_ns = int (1 / rgb_frame_rate * 1e9)
         )
 
-    def initialize_rerun_and_blueprint(self):
+    def initialize_rerun_and_blueprint(self, rrd_output_path: str = ""):
         """
         Initialize rerun and set up blueprint after all data is loaded
         """
-        self.logger.info("Initializing Rerun visualization window...")
-        rr.init("AriaGen2PilotDataViewer", spawn=True)
+        if rrd_output_path:
+            self.logger.info(
+                f"Initializing Rerun and saving to {rrd_output_path}... The Rerun window will not be shown when saving to a file."
+            )
+            rr.init("AriaGen2PilotDataViewer", spawn=False)
+            rr.save(rrd_output_path)
+        else:
+            self.logger.info("Initializing Rerun visualization window...")
+            rr.init("AriaGen2PilotDataViewer", spawn=True)
 
         # === Top Row Views ===
         rgb_view = rrb.Spatial2DView(
@@ -210,7 +217,6 @@ class AriaGen2PilotDataVisualizer:
         for data in vrs_data_provider.deliver_queued_sensor_data(deliver_option):
             device_time_ns = data.get_time_ns(TimeDomain.DEVICE_TIME)
             rr.set_time_nanos("device_time", device_time_ns)
-            progress_bar.update(1)
 
             # Extract frame from SensorData and log RGB image with overlays
             if data.sensor_data_type() == SensorDataType.IMAGE:
@@ -218,6 +224,7 @@ class AriaGen2PilotDataVisualizer:
                 stream_label = vrs_data_provider.get_label_from_stream_id(
                     data.stream_id()
                 )
+
                 # plot images
                 self.plot_image(
                     frame=frame,
@@ -242,6 +249,7 @@ class AriaGen2PilotDataVisualizer:
                 )
 
             if stream_label == self.RGB_CAMERA_LABEL:
+                progress_bar.update(1)
                 # plot heart rate data
                 if self.pd_provider.has_heart_rate_data():
                     heart_rate_data = self.pd_provider.get_heart_rate_by_timestamp_ns(

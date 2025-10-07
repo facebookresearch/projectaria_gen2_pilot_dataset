@@ -84,7 +84,7 @@ def main():
     visualizer = AriaGen2PilotDataVisualizer(data_provider, config)
 
     logger.info("Initializing visualization...")
-    visualizer.initialize_rerun_and_blueprint()
+    visualizer.initialize_rerun_and_blueprint(args.rrd_output_path)
     visualizer.plot_sequence()
 
     logger.info("Aria Gen2 Pilot Dataset Visualization finished successfully.")
