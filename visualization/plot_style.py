@@ -96,7 +96,7 @@ _REGISTRY = {
     ),
     PlotEntity.STEREO_DEPTH: PlotStyle(
         label="stereo_depth_depth_camera",
-        plot_3d_size=0.15,
+        plot_3d_size=0.005,
     ),
     # TODO: add initialization for all plot entities
 }

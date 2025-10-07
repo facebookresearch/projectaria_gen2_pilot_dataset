@@ -354,7 +354,7 @@ class AriaGen2PilotDataVisualizer:
         )
         rr.log(
             f"{camera_label}",
-            rr.Image(frame),
+            rr.Image(frame).compress(self.config.jpeg_quality),
         )
 
     # === MPS related plotting functions ===

@@ -9,3 +9,4 @@ class AriaGen2PilotViewerConfig:
 
     # number of point cloud points to visualize
     point_cloud_max_point_count: int = 50000
+    jpeg_quality: int = 50
