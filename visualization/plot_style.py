@@ -86,7 +86,7 @@ _REGISTRY = {
     ),
     PlotEntity.EVL_BBOX_3D: PlotStyle(
         label="evl_3d_bboxes",
-        color=plot_color.GREEN,
+        color=plot_color.GREEN_ALPHA,
         plot_3d_size=0.005,
     ),
     PlotEntity.EVL_BBOX_PROJECTED_3D: PlotStyle(

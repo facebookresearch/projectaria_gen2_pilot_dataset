@@ -23,7 +23,10 @@ from projectaria_tools.utils.rerun_helpers import (
     create_hand_skeleton_from_landmarks,
     ToTransform3D,
 )
+from rerun.blueprint.archetypes import LineGrid3D
 from tqdm import tqdm
+
+from . import plot_color
 
 from .aria_gen2_pilot_viewer_config import AriaGen2PilotViewerConfig
 from .plot_style import get_plot_style, PlotEntity, PlotStyle
@@ -103,6 +106,8 @@ class AriaGen2PilotDataVisualizer:
         world_3d_view = rrb.Spatial3DView(
             name="World View",
             origin="world",
+            background=plot_color.BLACK,
+            line_grid=LineGrid3D(visible=False),
         )
 
         # === Bottom Row Views ===
@@ -687,6 +692,7 @@ class AriaGen2PilotDataVisualizer:
                         labels=bb3d_labels[start_idx:end_idx],
                         colors=[plot_style.color],
                         radii=plot_style.plot_3d_size,
+                        show_labels=False,
                     ),
                 )
                 batch_id += 1
