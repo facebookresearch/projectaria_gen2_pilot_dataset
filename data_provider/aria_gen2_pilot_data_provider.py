@@ -71,6 +71,7 @@ class AriaGen2PilotDataProvider:
         Args:
             sequence_folder_path: Path to the sequence folder
         """
+        self.RGB_CAMERA_LABEL = "camera-rgb"
         # Create data paths from the sequence folder path
         path_provider = AriaGen2PilotDataPathsProvider(sequence_folder_path)
         parsed_data_paths = path_provider.get_data_paths()
@@ -182,9 +183,20 @@ class AriaGen2PilotDataProvider:
                 self.data_paths_.sequence_path,
             )
             return None
+        rgb_stream_id = self.vrs_data_provider_.get_stream_id_from_label(
+            self.RGB_CAMERA_LABEL
+        )
+        rgb_width = self.vrs_data_provider_.get_image_configuration(
+            rgb_stream_id
+        ).image_width
+        rgb_height = self.vrs_data_provider_.get_image_configuration(
+            rgb_stream_id
+        ).image_height
 
         return HandObjectInteractionDataProvider(
-            self.data_paths_.hand_object_interaction_results_file_path
+            self.data_paths_.hand_object_interaction_results_file_path,
+            rgb_width=rgb_width,
+            rgb_height=rgb_height,
         )
 
     def init_egocentric_voxel_lifting_data_provider(

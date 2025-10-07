@@ -29,6 +29,11 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
+from .aria_gen2_pilot_dataset_data_types import (
+    HandObjectInteractionData,
+    HandObjectInteractionDataRaw,
+)
+
 
 def rle_from_string(encoded_string: str, height: int, width: int) -> List[int]:
     """
@@ -345,7 +350,9 @@ def toBbox(rle_objects) -> np.ndarray:
         raise ValueError("rle_objects must be dict or list of dicts")
 
 
-def convert_to_decoded_format(undecoded_data_list):
+def convert_to_decoded_format(
+    undecoded_data_list: List[HandObjectInteractionDataRaw],
+) -> List[HandObjectInteractionData]:
     """
     Convert undecoded RLE data to decoded format by decoding RLE masks on-demand.
 

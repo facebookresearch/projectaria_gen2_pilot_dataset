@@ -4,6 +4,9 @@ import json
 import os
 from typing import Dict, List, Optional
 
+import numpy as np
+from PIL import Image
+
 from projectaria_tools.core.sensor_data import TimeQueryOptions
 
 # Use self-contained RLE utilities instead of external pycocotools
@@ -19,18 +22,22 @@ from .utils import find_timestamp_index_by_time_query_option
 class HandObjectInteractionDataProvider:
     """Hand-object interaction data provider for Aria Gen2 Pilot Dataset."""
 
-    def __init__(self, data_path: str):
+    def __init__(self, data_path: str, rgb_width: int, rgb_height: int):
         """
-        Initialize with path to hand_object_interaction_results.json.
+        Initialize with path to hand_object_interaction_results.json and rgb size.
 
-        The file contains COCO-format detection results:
+        hand_object_interaction_results.json contains COCO-format detection results:
         - List of annotations with segmentation, bbox, score, image_id, category_id
         - category_id: 1=left_hand, 2=right_hand, 3=interacting_object
         - timestamp_ns = image_id * 1e6
+
+        rgb image size is needed to resize the segmentation mask to the same size as rgb image
         """
         # Store data and timestamps in separate lists following the standard pattern
         self.hoi_data_list: List[List[HandObjectInteractionDataRaw]] = []
         self.timestamps_ns: List[int] = []
+        self.rgb_width = rgb_width
+        self.rgb_height = rgb_height
 
         self._load_data(data_path)
 
@@ -90,20 +97,37 @@ class HandObjectInteractionDataProvider:
         self,
         timestamp_ns: int,
         time_query_options: TimeQueryOptions = TimeQueryOptions.CLOSEST,
+        resize_masks: bool = True,
     ) -> Optional[List[HandObjectInteractionData]]:
         """Get all interactions at timestamp (hands + objects)."""
         index = find_timestamp_index_by_time_query_option(
             self.timestamps_ns, timestamp_ns, time_query_options
         )
-        return self.get_hoi_data_by_index(index)
+        return self.get_hoi_data_by_index(index, resize_masks)
 
     def get_hoi_data_by_index(
-        self, index: int
+        self, index: int, resize_masks: bool = True
     ) -> Optional[List[HandObjectInteractionData]]:
         """Get interactions by index."""
         if 0 <= index < len(self.hoi_data_list):
             undecoded_data = self.hoi_data_list[index]
-            return rle_utils.convert_to_decoded_format(undecoded_data)
+            decoded_data_list = rle_utils.convert_to_decoded_format(undecoded_data)
+
+            if resize_masks:
+                # Resize masks for each HandObjectInteractionData object
+                for hoi_data in decoded_data_list:
+                    resized_masks = []
+                    for mask in hoi_data.masks:
+                        # Convert numpy array to PIL Image and resize
+                        mask_image = Image.fromarray(mask.astype(np.uint8))
+                        resized_mask = mask_image.resize(
+                            (self.rgb_width, self.rgb_height), resample=Image.NEAREST
+                        )
+                        resized_masks.append(np.array(resized_mask))
+                    # Update the masks with resized versions
+                    hoi_data.masks = resized_masks
+
+            return decoded_data_list
         return None
 
     def get_hoi_total_number(self) -> int:

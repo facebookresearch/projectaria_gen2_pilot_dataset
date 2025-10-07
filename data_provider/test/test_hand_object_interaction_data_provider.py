@@ -72,7 +72,9 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
         self.temp_file.close()
 
         # Initialize data provider
-        self.provider = HandObjectInteractionDataProvider(self.temp_file.name)
+        self.provider = HandObjectInteractionDataProvider(
+            self.temp_file.name, rgb_width=2560, rgb_height=1920
+        )
 
     def tearDown(self):
         """Clean up temporary files."""
@@ -83,7 +85,7 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
         # Test exact timestamp match
         timestamp_ns = 2620886000000
         data = self.provider.get_hoi_data_by_timestamp_ns(
-            timestamp_ns, TimeQueryOptions.CLOSEST
+            timestamp_ns, TimeQueryOptions.CLOSEST, resize_masks=False
         )
 
         self.assertIsNotNone(data)
@@ -212,11 +214,15 @@ class TestHandObjectInteractionDataProvider(unittest.TestCase):
 
         try:
             with self.assertRaises(RuntimeError):
-                HandObjectInteractionDataProvider(empty_file.name)
+                HandObjectInteractionDataProvider(
+                    empty_file.name, rgb_width=0, rgb_height=0
+                )
         finally:
             os.unlink(empty_file.name)
 
     def test_missing_file_handling(self):
         """Test behavior with missing file."""
         with self.assertRaises(FileNotFoundError):
-            HandObjectInteractionDataProvider("/nonexistent/path.json")
+            HandObjectInteractionDataProvider(
+                "/nonexistent/path.json", rgb_width=0, rgb_height=0
+            )
