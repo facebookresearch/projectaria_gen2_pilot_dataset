@@ -882,9 +882,8 @@ class AriaGen2PilotDataVisualizer:
             rr.DepthImage(
                 depth_map,
                 meter=DEPTH_IMAGE_SCALING,
-                colormap="Turbo",
+                colormap="Magma",
                 point_fill_ratio=plot_style.plot_3d_size,
-                depth_range=[0, 65535],  # 16-bit depth map
             ),
         )
 
@@ -901,9 +900,8 @@ class AriaGen2PilotDataVisualizer:
             rr.DepthImage(
                 depth_map,
                 meter=1000,
-                colormap="Turbo",
-                depth_range=[0, 65535],
-            ),  # 16-bit depth map
+                colormap="Magma",
+            ),
         )
         self.plot_image(
             frame=rectified_slam_front_left_image,
