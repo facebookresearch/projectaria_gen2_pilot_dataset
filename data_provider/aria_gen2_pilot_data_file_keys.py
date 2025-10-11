@@ -15,6 +15,11 @@ VRS_HEALTH_CHECK_FILE = "vrs_health_check_results.json"
 
 # mps
 MPS_FOLDER = "mps"
+MPS_SLAM_SUBFOLDER = "slam"
+MPS_HAND_TRACKING_SUBFOLDER = "hand_tracking"
+MPS_OPEN_LOOP_TRAJECTORY_FILE_NAME = "open_loop_trajectory.csv"
+MPS_CLOSED_LOOP_TRAJECTORY_FILE_NAME = "closed_loop_trajectory.csv"
+MPS_HAND_TRACKING_RESULTS_FILE_NAME = "hand_tracking_results.csv"
 
 # Algorithm folders and files
 HEART_RATE_FOLDER = "heart_rate"

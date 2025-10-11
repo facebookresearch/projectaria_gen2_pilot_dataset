@@ -1,9 +1,17 @@
 # (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 import logging
+import os
 from typing import Dict, List, Optional
 
 import numpy as np
+from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_data_file_keys import (
+    MPS_CLOSED_LOOP_TRAJECTORY_FILE_NAME,
+    MPS_HAND_TRACKING_RESULTS_FILE_NAME,
+    MPS_HAND_TRACKING_SUBFOLDER,
+    MPS_OPEN_LOOP_TRAJECTORY_FILE_NAME,
+    MPS_SLAM_SUBFOLDER,
+)
 from projectaria_tools.core import mps
 from projectaria_tools.core.calibration import DeviceCalibration
 
@@ -95,6 +103,15 @@ class AriaGen2PilotDataProvider:
         )
         self.heart_rate_data_provider_ = self.init_heart_rate_data_provider()
         self.diarization_data_provider_ = self.init_diarization_data_provider()
+
+        # Initialize caches for MPS data
+        self._cached_open_loop_trajectory: Optional[List[OpenLoopTrajectoryPose]] = None
+        self._cached_closed_loop_trajectory: Optional[
+            List[ClosedLoopTrajectoryPose]
+        ] = None
+        self._cached_hand_tracking_result_list: Optional[
+            List[mps.hand_tracking.HandTrackingResult]
+        ] = None
 
         # Report data provider availability
         data_types = [
@@ -597,6 +614,42 @@ class AriaGen2PilotDataProvider:
         """Return whether the MPS data provider exists."""
         return self.mps_data_provider_ is not None
 
+    def get_mps_open_loop_trajectory(self) -> List[OpenLoopTrajectoryPose]:
+        if self.mps_data_provider_ is None:
+            raise RuntimeError("MPS data provider was not initialized.")
+
+        # Return cached data if available
+        if self._cached_open_loop_trajectory is not None:
+            return self._cached_open_loop_trajectory
+
+        # Load and cache the data
+        self._cached_open_loop_trajectory = mps.read_open_loop_trajectory(
+            os.path.join(
+                self.data_paths_.mps_folder_path,
+                MPS_SLAM_SUBFOLDER,
+                MPS_OPEN_LOOP_TRAJECTORY_FILE_NAME,
+            )
+        )
+        return self._cached_open_loop_trajectory
+
+    def get_mps_closed_loop_trajectory(self) -> List[ClosedLoopTrajectoryPose]:
+        if self.mps_data_provider_ is None:
+            raise RuntimeError("MPS data provider was not initialized.")
+
+        # Return cached data if available
+        if self._cached_closed_loop_trajectory is not None:
+            return self._cached_closed_loop_trajectory
+
+        # Load and cache the data
+        self._cached_closed_loop_trajectory = mps.read_closed_loop_trajectory(
+            os.path.join(
+                self.data_paths_.mps_folder_path,
+                MPS_SLAM_SUBFOLDER,
+                MPS_CLOSED_LOOP_TRAJECTORY_FILE_NAME,
+            )
+        )
+        return self._cached_closed_loop_trajectory
+
     def get_mps_open_loop_pose(
         self,
         timestamp_ns: int,
@@ -680,6 +733,29 @@ class AriaGen2PilotDataProvider:
             points_data = filter_points_from_count(points_data, max_point_count)
 
         return points_data
+
+    def get_mps_hand_tracking_result_list(
+        self,
+    ) -> List[mps.hand_tracking.HandTrackingResult]:
+        """Get the MPS hand tracking results."""
+        if self.mps_data_provider_ is None:
+            raise RuntimeError("MPS data provider was not initialized.")
+
+        # Return cached data if available
+        if self._cached_hand_tracking_result_list is not None:
+            return self._cached_hand_tracking_result_list
+
+        # Load and cache the data
+        self._cached_hand_tracking_result_list = (
+            mps.hand_tracking.read_hand_tracking_results(
+                os.path.join(
+                    self.data_paths_.mps_folder_path,
+                    MPS_HAND_TRACKING_SUBFOLDER,
+                    MPS_HAND_TRACKING_RESULTS_FILE_NAME,
+                )
+            )
+        )
+        return self._cached_hand_tracking_result_list
 
     def get_mps_hand_tracking_result(
         self,
