@@ -799,7 +799,14 @@ class AriaGen2PilotDataVisualizer:
         trajectory_pose = self.pd_provider.get_mps_closed_loop_pose(
             device_time_ns, TimeDomain.DEVICE_TIME
         )
-        if not trajectory_pose:
+        if (
+            not trajectory_pose
+            or abs(
+                int(trajectory_pose.tracking_timestamp.total_seconds() * 1e9)
+                - device_time_ns
+            )
+            > self.rgb_frame_interval_ns / 2
+        ):
             return
 
         # Get transforms and image dimensions
