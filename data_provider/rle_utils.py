@@ -51,18 +51,22 @@ def rle_from_string(encoded_string: str, height: int, width: int) -> List[int]:
     Returns:
         List of RLE counts (alternating background and foreground pixel counts)
     """
-    counts_array = [0] * len(encoded_string)  # Allocate maximum possible counts
+    # Pre-convert string to bytes for faster access
+    encoded_bytes = encoded_string.encode("latin-1")
+    encoded_length = len(encoded_bytes)
+
+    counts_array = [0] * encoded_length  # Allocate maximum possible counts
     num_counts = 0
     string_position = 0
 
-    while string_position < len(encoded_string):
+    while string_position < encoded_length:
         decoded_value = 0
         bit_position = 0
         has_more_bits = True
 
         # Decode variable-length integer from consecutive characters
-        while has_more_bits and string_position < len(encoded_string):
-            char_value = ord(encoded_string[string_position]) - 48  # Convert from ASCII
+        while has_more_bits and string_position < encoded_length:
+            char_value = encoded_bytes[string_position] - 48  # Convert from ASCII
             decoded_value |= (char_value & 0x1F) << (
                 5 * bit_position
             )  # Extract 5 bits and shift
@@ -105,16 +109,22 @@ def rle_decode(
     current_position = 0  # Current position in mask
     current_value = 0  # Current pixel value (0 or 1)
 
-    # Process each run-length count
+    # Process each run-length count using vectorized operations
     for count in run_length_counts:
-        # Fill 'count' pixels with current value
-        for _ in range(count):
-            if current_position >= total_pixels:
-                # Memory boundary check - invalid RLE
-                return None
-            mask[current_position] = current_value
-            current_position += 1
+        if count <= 0:  # Skip invalid counts
+            continue
 
+        end_position = current_position + count
+        if end_position > total_pixels:
+            # Memory boundary check - invalid RLE
+            return None
+
+        # Fill range using NumPy slicing (much faster than Python loop)
+        if current_value == 1:
+            mask[current_position:end_position] = 1
+        # No need to explicitly set 0s since array is already zero-initialized
+
+        current_position = end_position
         # Flip value for next run (0 -> 1, 1 -> 0)
         current_value = 1 - current_value
 
@@ -134,9 +144,11 @@ def decode_coco_rle_to_mask(rle_obj: Dict[str, any]) -> np.ndarray:
     height, width = rle_obj["size"]
     rle_string = rle_obj["counts"]
 
-    # Convert bytes to string if needed
+    # Convert bytes to string if needed - optimize common case
     if isinstance(rle_string, bytes):
         string_data = rle_string.decode("latin-1")
+    elif isinstance(rle_string, str):
+        string_data = rle_string  # No conversion needed
     else:
         string_data = str(rle_string)
 
@@ -169,15 +181,17 @@ def calculate_rle_area(rle_dict: Dict) -> float:
     height, width = rle_dict["size"]
     rle_string = rle_dict["counts"]
 
-    # Convert bytes to string if needed
+    # Convert bytes to string if needed - optimize common case
     if isinstance(rle_string, bytes):
         string_data = rle_string.decode("latin-1")
+    elif isinstance(rle_string, str):
+        string_data = rle_string  # No conversion needed
     else:
         string_data = str(rle_string)
 
     run_length_counts = rle_from_string(string_data, height, width)
-    # Sum odd-indexed counts (counts of foreground pixels)
-    area = sum(run_length_counts[i] for i in range(1, len(run_length_counts), 2))
+    # Use slice notation for better performance
+    area = sum(run_length_counts[1::2])  # Sum odd-indexed counts (foreground pixels)
     return float(area)
 
 
@@ -204,15 +218,15 @@ def rle_to_bbox(rle_dict: Dict) -> Optional[Tuple[float, float, float, float]]:
 
     counts = rle_dict.get("counts", [])
 
-    if isinstance(counts, str) or isinstance(counts, bytes):
-        # Convert bytes to string if needed
+    if isinstance(counts, (str, bytes)):
+        # Convert bytes to string if needed - optimize common case
         if isinstance(counts, bytes):
             string_data = counts.decode("latin-1")
         else:
-            string_data = str(counts)
+            string_data = counts  # Already a string
         counts = rle_from_string(string_data, height, width)
     elif isinstance(counts, list):
-        counts = list(counts)
+        pass
     else:
         return None
 
@@ -365,38 +379,43 @@ def convert_to_decoded_format(
     # Import here to avoid circular imports
     from .aria_gen2_pilot_dataset_data_types import HandObjectInteractionData
 
+    if not undecoded_data_list:
+        return []
+
     # Group by category_id and decode masks, bboxes, scores for each category
     category_groups: Dict[int, Dict[str, List]] = {}
+    timestamp_ns = undecoded_data_list[0].timestamp_ns  # Get timestamp once
 
     for undecoded_data in undecoded_data_list:
         category_id = undecoded_data.category_id
 
-        # Decode RLE to binary mask
+        # Pre-allocate category group if needed
+        if category_id not in category_groups:
+            category_groups[category_id] = {"masks": [], "bboxes": [], "scores": []}
+
+        category_group = category_groups[category_id]  # Cache reference
+
+        # Decode RLE to binary mask - reuse objects
         rle = {
             "size": undecoded_data.segmentation_size,
             "counts": undecoded_data.segmentation_counts,
         }
         decoded_mask = decode_coco_rle_to_mask(rle)
 
-        if category_id not in category_groups:
-            category_groups[category_id] = {"masks": [], "bboxes": [], "scores": []}
+        category_group["masks"].append(decoded_mask)
+        category_group["bboxes"].append(undecoded_data.bbox)
+        category_group["scores"].append(undecoded_data.score)
 
-        category_groups[category_id]["masks"].append(decoded_mask)
-        category_groups[category_id]["bboxes"].append(undecoded_data.bbox)
-        category_groups[category_id]["scores"].append(undecoded_data.score)
-
-    # Create HandObjectInteractionData objects
-    decoded_data_list = []
-    timestamp_ns = undecoded_data_list[0].timestamp_ns  # All should have same timestamp
-
-    for category_id, data in category_groups.items():
-        decoded_data = HandObjectInteractionData(
+    # Create HandObjectInteractionData objects - use list comprehension for speed
+    decoded_data_list = [
+        HandObjectInteractionData(
             timestamp_ns=timestamp_ns,
             category_id=category_id,
             masks=data["masks"],
             bboxes=data["bboxes"],
             scores=data["scores"],
         )
-        decoded_data_list.append(decoded_data)
+        for category_id, data in category_groups.items()
+    ]
 
     return decoded_data_list

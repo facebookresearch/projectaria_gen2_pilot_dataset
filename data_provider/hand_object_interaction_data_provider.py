@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 
 from projectaria_tools.core.sensor_data import TimeQueryOptions
+from tqdm import tqdm
 
 # Use self-contained RLE utilities instead of external pycocotools
 from . import rle_utils
@@ -34,7 +35,8 @@ class HandObjectInteractionDataProvider:
         rgb image size is needed to resize the segmentation mask to the same size as rgb image
         """
         # Store data and timestamps in separate lists following the standard pattern
-        self.hoi_data_list: List[List[HandObjectInteractionDataRaw]] = []
+        # Now storing decoded data directly instead of raw RLE data
+        self.hoi_data_list: List[List[HandObjectInteractionData]] = []
         self.timestamps_ns: List[int] = []
         self.rgb_width = rgb_width
         self.rgb_height = rgb_height
@@ -56,7 +58,9 @@ class HandObjectInteractionDataProvider:
                 )
             temp_data: Dict[int, List[HandObjectInteractionDataRaw]] = {}
 
-            for annotation in annotations:
+            # Process annotations with progress bar
+            print("Loading hand-object interaction annotations...")
+            for annotation in tqdm(annotations, desc="Processing annotations"):
                 original_image_id = int(annotation["image_id"])
                 timestamp_ns = int(original_image_id * 1e6)
 
@@ -80,9 +84,22 @@ class HandObjectInteractionDataProvider:
 
                 temp_data.setdefault(timestamp_ns, []).append(hoi_data)
 
+            # Convert raw data to decoded format during loading
             sorted_temp_data = sorted(temp_data.items())
-            self.hoi_data_list = [interactions for _, interactions in sorted_temp_data]
-            self.timestamps_ns = [ts for ts, _ in sorted_temp_data]
+            self.hoi_data_list = []
+            self.timestamps_ns = []
+
+            # Decode RLE data with progress bar
+            print("Decoding RLE masks...")
+            for timestamp_ns, raw_interactions in tqdm(
+                sorted_temp_data, desc="Decoding masks"
+            ):
+                # Decode RLE data immediately during loading
+                decoded_interactions = rle_utils.convert_to_decoded_format(
+                    raw_interactions
+                )
+                self.hoi_data_list.append(decoded_interactions)
+                self.timestamps_ns.append(timestamp_ns)
 
         except Exception as e:
             raise RuntimeError(
@@ -110,22 +127,20 @@ class HandObjectInteractionDataProvider:
     ) -> Optional[List[HandObjectInteractionData]]:
         """Get interactions by index."""
         if 0 <= index < len(self.hoi_data_list):
-            undecoded_data = self.hoi_data_list[index]
-            decoded_data_list = rle_utils.convert_to_decoded_format(undecoded_data)
+            # Data is already decoded, just retrieve it
+            decoded_data_list = self.hoi_data_list[index]
 
             if resize_masks:
-                # Resize masks for each HandObjectInteractionData object
+                # Resize masks directly in-place by modifying the existing data
                 for hoi_data in decoded_data_list:
-                    resized_masks = []
-                    for mask in hoi_data.masks:
+                    # Resize each mask directly
+                    for i, mask in enumerate(hoi_data.masks):
                         # Convert numpy array to PIL Image and resize
                         mask_image = Image.fromarray(mask.astype(np.uint8))
                         resized_mask = mask_image.resize(
                             (self.rgb_width, self.rgb_height), resample=Image.NEAREST
                         )
-                        resized_masks.append(np.array(resized_mask))
-                    # Update the masks with resized versions
-                    hoi_data.masks = resized_masks
+                        hoi_data.masks[i] = np.array(resized_mask)
 
             return decoded_data_list
         return None
