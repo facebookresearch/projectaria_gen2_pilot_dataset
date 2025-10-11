@@ -83,6 +83,13 @@ class AriaGen2PilotDataVisualizer:
         self.rgb_frame_interval_ns = (
             0  # set later, rgb_frame_interval_ns = int (1 / rgb_frame_rate * 1e9)
         )
+        # Store original image dimensions for scaling calculations
+        self.original_rgb_width, self.original_rgb_height = (
+            self.rgb_camera_calibration.get_image_size()
+        )
+        self.original_slam_width, self.original_slam_height = (
+            self.slam_left_front_camera_calibration.get_image_size()
+        )
 
     def initialize_rerun_and_blueprint(self, rrd_output_path: str = ""):
         """
@@ -346,13 +353,57 @@ class AriaGen2PilotDataVisualizer:
             static=True,
         )
 
+    def _resize_image(self, image: np.ndarray, downsample_factor: int) -> np.ndarray:
+        """Downsample image by given factor using PIL, handles both regular and uint16 images."""
+        if downsample_factor <= 1:
+            return image
+
+        new_size = (
+            image.shape[1] // downsample_factor,
+            image.shape[0] // downsample_factor,
+        )
+
+        # Handle uint16 images (not directly supported by PIL)
+        if image.dtype == np.uint16:
+            image_f = Image.fromarray(image.astype(np.float32), mode="F")
+            resized_image = image_f.resize(new_size, resample=Image.LANCZOS)
+            return np.clip(np.array(resized_image), 0, 65535).astype(np.uint16)
+
+        # Handle regular images (uint8, RGB, etc.)
+        pil_image = Image.fromarray(image)
+        return np.array(pil_image.resize(new_size, Image.LANCZOS))
+
+    def _get_camera_scale_factor(self, camera_label: str) -> float:
+        """Get the scaling factor for overlays on this camera due to downsampling."""
+        if camera_label == self.RGB_CAMERA_LABEL:
+            return 1.0 / self.config.rgb_downsample_factor
+        elif camera_label in self.SLAM_CAMERA_LABELS:
+            return 1.0 / self.config.slam_downsample_factor
+        else:
+            return 1.0  # No scaling for unknown cameras
+
     def plot_image(
         self,
         frame: np.array,
         camera_label: str,
         jpeg_quality: int,
     ) -> None:
-        """Plot image from a camera"""
+        """Plot image from a camera with downsampling"""
+        # Apply downsampling based on camera type
+        if camera_label == self.RGB_CAMERA_LABEL:
+            downsample_factor = self.config.rgb_downsample_factor
+        elif (
+            camera_label in self.SLAM_CAMERA_LABELS
+            or camera_label == "rectified_slam_front_left"
+        ):
+            downsample_factor = self.config.slam_downsample_factor
+        else:
+            downsample_factor = 1
+
+        # Downsample the image
+        if downsample_factor > 1:
+            frame = self._resize_image(frame, downsample_factor)
+
         rr.log(
             f"{camera_label}",
             rr.Clear.recursive(),
@@ -483,17 +534,35 @@ class AriaGen2PilotDataVisualizer:
         # Create hand skeleton in 2D image space
         hand_skeleton = create_hand_skeleton_from_landmarks(hand_joints_in_camera)
 
+        # Apply downsampling scaling to 2D coordinates
+        downsample_scale = self._get_camera_scale_factor(camera_label)
+        if downsample_scale != 1.0:
+            hand_joints_in_camera = [
+                [pt[0] * downsample_scale, pt[1] * downsample_scale]
+                if pt is not None
+                else None
+                for pt in hand_joints_in_camera
+            ]
+            hand_skeleton = [
+                [
+                    [pt[0] * downsample_scale, pt[1] * downsample_scale]
+                    for pt in strip
+                    if pt is not None
+                ]
+                for strip in hand_skeleton
+            ]
+
         # Remove "None" markers from hand joints in camera. This is intentionally done AFTER the hand skeleton creation
         hand_joints_in_camera = list(
             filter(lambda x: x is not None, hand_joints_in_camera)
         )
 
+        # Apply both SLAM-to-RGB ratio AND downsampling scale factor
         scale_ratio = (
-            self.slam_to_rgb_plotting_ratio
-            if camera_label != self.RGB_CAMERA_LABEL
-            else 1
+            downsample_scale
+            if camera_label == self.RGB_CAMERA_LABEL
+            else downsample_scale * self.slam_to_rgb_plotting_ratio
         )
-
         rr.log(
             f"{camera_label}/hand-tracking/{hand_label}/{landmarks_style.label}",
             rr.Points2D(
@@ -598,14 +667,23 @@ class AriaGen2PilotDataVisualizer:
             f"{self.RGB_CAMERA_LABEL}/{diarization_style.label}", rr.Clear.recursive()
         )
 
-        # Get image dimensions for positioning
+        # Get image dimensions for positioning (use original dimensions, then scale)
         width, height = self.rgb_camera_calibration.get_image_size()
+
+        # Apply downsampling scaling
+        downsample_scale = self._get_camera_scale_factor(self.RGB_CAMERA_LABEL)
+        scaled_width = width * downsample_scale
+        scaled_height = height * downsample_scale
 
         if diarization_data_list:
             for i, conv_data in enumerate(diarization_data_list):
                 text_content = f"{conv_data.speaker}: {conv_data.content}"
-                text_x = width // 2
-                text_y = height - height / 15 - (i * diarization_style.plot_2d_size * 7)
+                text_x = scaled_width // 2
+                text_y = (
+                    scaled_height
+                    - scaled_height / 15
+                    - (i * diarization_style.plot_2d_size * downsample_scale * 7)
+                )
 
                 rr.log(
                     f"{self.RGB_CAMERA_LABEL}/{diarization_style.label}/conversation_text_{i}",
@@ -613,7 +691,7 @@ class AriaGen2PilotDataVisualizer:
                         positions=[[text_x, text_y]],
                         labels=[text_content],
                         colors=[diarization_style.color],
-                        radii=diarization_style.plot_2d_size,
+                        radii=diarization_style.plot_2d_size * downsample_scale,
                     ),
                 )
 
@@ -728,7 +806,10 @@ class AriaGen2PilotDataVisualizer:
         T_world_device = trajectory_pose.transform_world_device
         T_device_camera = self.rgb_camera_calibration.get_transform_device_camera()
         T_world_camera = T_world_device @ T_device_camera
+
+        # Get original image dimensions then scale for downsampling
         image_width, image_height = self.rgb_camera_calibration.get_image_size()
+        downsample_scale = self._get_camera_scale_factor(self.RGB_CAMERA_LABEL)
 
         # Extract bbox data for projection using utility function
         projection_data = extract_bbox_projection_data(self.pd_provider, evl_3d_bboxes)
@@ -746,7 +827,7 @@ class AriaGen2PilotDataVisualizer:
                 corners_in_world=data["corners_world"],
                 T_world_camera=T_world_camera,
                 camera_calibration=self.rgb_camera_calibration,
-                image_width=image_width,
+                image_width=image_width,  # Use original dimensions for projection
                 image_height=image_height,
                 label=data["label"],
             )
@@ -756,6 +837,17 @@ class AriaGen2PilotDataVisualizer:
 
             # Collect projection data for batching
             if projected_lines:
+                # Scale projected line coordinates for downsampling
+                if downsample_scale != 1.0:
+                    scaled_lines = []
+                    for line_strip in projected_lines:
+                        scaled_strip = [
+                            [pt[0] * downsample_scale, pt[1] * downsample_scale]
+                            for pt in line_strip
+                        ]
+                        scaled_lines.append(scaled_strip)
+                    projected_lines = scaled_lines
+
                 all_projected_lines.extend(projected_lines)
                 if line_colors and len(line_colors) >= len(projected_lines):
                     all_line_colors.extend(line_colors[: len(projected_lines)])
@@ -765,18 +857,26 @@ class AriaGen2PilotDataVisualizer:
                     )
 
                 if label_position and data["label"]:
+                    # Scale label position for downsampling
+                    if downsample_scale != 1.0:
+                        label_position = [
+                            label_position[0] * downsample_scale,
+                            label_position[1] * downsample_scale,
+                        ]
+
                     label_positions.append(label_position)
                     label_texts.append(data["label"])
                     label_colors.append(plot_style.color)
 
-        # Batch and log all results
+        # Batch and log all results with scaling
         if all_projected_lines:
             rr.log(
                 f"{self.RGB_CAMERA_LABEL}/{plot_style.label}/wireframes",
                 rr.LineStrips2D(
                     all_projected_lines,
                     colors=all_line_colors,
-                    radii=plot_style.plot_2d_size,
+                    radii=plot_style.plot_2d_size
+                    * downsample_scale,  # Scale line thickness
                 ),
             )
 
@@ -844,21 +944,18 @@ class AriaGen2PilotDataVisualizer:
                 foreground_pixels = mask > 0
                 combined_rgba_overlay[foreground_pixels] = plot_style.color
 
+        # Apply downsampling to HOI overlay if needed
+        downsample_scale = self._get_camera_scale_factor(self.RGB_CAMERA_LABEL)
+        if downsample_scale != 1.0:
+            combined_rgba_overlay = self._resize_image(
+                combined_rgba_overlay, self.config.rgb_downsample_factor
+            )
+
         # Log the combined segmentation overlay as an image
         rr.log(
             f"{self.RGB_CAMERA_LABEL}/hoi_overlay/combined",
             rr.Image(combined_rgba_overlay),
         )
-
-    def _subsample_image(self, image: np.ndarray, factor: int) -> np.ndarray:
-        """Subsample an image by a given factor using bilinear interpolation."""
-
-        image_f = Image.fromarray(image.astype(np.float32), mode="F")
-        new_size = (image.shape[1] // factor, image.shape[0] // factor)
-        resized_image = image_f.resize(new_size, resample=Image.Resampling.BILINEAR)
-        resized_array_f = np.array(resized_image, dtype=np.float32)
-        resized_array_uint16 = np.clip(resized_array_f, 0, 65535).astype(np.uint16)
-        return resized_array_uint16
 
     def plot_stereo_depth_3d_(
         self,
@@ -879,7 +976,7 @@ class AriaGen2PilotDataVisualizer:
         original_ux, original_uy = (
             camera_intrinsics_and_pose.camera_projection.get_principal_point()
         )
-        factor = self.config.depth_image_downsample_factor_3d
+        factor = self.config.depth_image_downsample_factor
 
         # Scale intrinsics to match the downsampled (subsampled) image size
         scaled_fx = original_fx / factor
@@ -887,7 +984,7 @@ class AriaGen2PilotDataVisualizer:
         scaled_ux = original_ux / factor
         scaled_uy = original_uy / factor
 
-        subsampled_depth_map = self._subsample_image(depth_map, factor)
+        subsampled_depth_map = self._resize_image(depth_map, factor)
 
         rr.log(
             f"world/{plot_style.label}",

@@ -7,10 +7,15 @@ from dataclasses import dataclass
 class AriaGen2PilotViewerConfig:
     """Configuration class for AriaGen2PilotDataVisualizer."""
 
-    # number of point cloud points to visualize
-    point_cloud_max_point_count: int = 30000
-    rgb_jpeg_quality: int = 30
-    depth_and_slam_jpeg_quality: int = 10
+    # === Memory Optimization Settings ===
+    # Reduce image quality for memory savings
+    rgb_jpeg_quality: int = 50
+    depth_and_slam_jpeg_quality: int = 50
 
-    # new_image_width = image_width // depth_image_downsample_factor, new_image_height = image_height // depth_image_downsample_factor
-    depth_image_downsample_factor_3d: int = 4
+    # Downsample images before logging
+    rgb_downsample_factor: int = 2
+    slam_downsample_factor: int = 4
+    depth_image_downsample_factor: int = 4
+
+    # Point cloud memory optimization
+    point_cloud_max_point_count: int = 30000
