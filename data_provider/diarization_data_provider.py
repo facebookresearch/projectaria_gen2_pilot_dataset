@@ -55,7 +55,13 @@ class DiarizationDataProvider:
                 "No diarization data found, can not initialize DiarizationDataProvider."
             )
 
-    def get_diarization_data_by_timestamp(
+    def get_diarization_data_by_index(self, index: int) -> DiarizationData:
+        """Get utterance by index."""
+        if index < 0 or index >= len(self.diarization_data):
+            raise IndexError(f"Index {index} out of range.")
+        return self.diarization_data[index]
+
+    def get_diarization_data_by_timestamp_ns(
         self, timestamp_ns: int
     ) -> List[DiarizationData]:
         """Get utterances spanning timestamp.

@@ -60,30 +60,30 @@ class TestDiarizationDataProvider(unittest.TestCase):
         self.assertEqual(first_segment.speaker, "Speaker1")
         self.assertEqual(first_segment.content, "Hello world")
 
-    def test_get_diarization_data_by_timestamp_single_segment(self):
+    def test_get_diarization_data_by_timestamp_ns_single_segment(self):
         """Test timestamp search with single matching segment."""
         # Test timestamp within first segment
-        result = self.provider.get_diarization_data_by_timestamp(1500000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(1500000000)
         self.assertEqual(len(result), 2)  # Should match first two overlapping segments
         speakers = [seg.speaker for seg in result]
         self.assertIn("Speaker1", speakers)
         self.assertIn("Speaker2", speakers)
 
         # Test timestamp at segment boundary (start)
-        result = self.provider.get_diarization_data_by_timestamp(1000000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(1000000000)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].speaker, "Speaker1")
 
         # Test timestamp at segment boundary (end - inclusive)
-        result = self.provider.get_diarization_data_by_timestamp(2000000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(2000000000)
         self.assertGreaterEqual(
             len(result), 1
         )  # Should include segment ending at this time
 
-    def test_get_diarization_data_by_timestamp_overlapping_segments(self):
+    def test_get_diarization_data_by_timestamp_ns_overlapping_segments(self):
         """Test timestamp search with overlapping segments."""
         # Test timestamp in overlapping region (1500-2000ns)
-        result = self.provider.get_diarization_data_by_timestamp(1750000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(1750000000)
         self.assertEqual(len(result), 2)
 
         # Check both speakers are present
@@ -96,18 +96,18 @@ class TestDiarizationDataProvider(unittest.TestCase):
         self.assertIn("Hello world", contents)
         self.assertIn("Good morning overlapping", contents)
 
-    def test_get_diarization_data_by_timestamp_no_match(self):
+    def test_get_diarization_data_by_timestamp_ns_no_match(self):
         """Test timestamp search with no matching segments."""
         # Test timestamp before all segments
-        result = self.provider.get_diarization_data_by_timestamp(500000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(500000000)
         self.assertEqual(len(result), 0)
 
         # Test timestamp after all segments
-        result = self.provider.get_diarization_data_by_timestamp(8000000000)
+        result = self.provider.get_diarization_data_by_timestamp_ns(8000000000)
         self.assertEqual(len(result), 0)
 
         # Test timestamp in gap between segments
-        result = self.provider.get_diarization_data_by_timestamp(
+        result = self.provider.get_diarization_data_by_timestamp_ns(
             5250000000
         )  # Between 5000-5500
         self.assertEqual(len(result), 0)
@@ -195,7 +195,7 @@ class TestDiarizationDataProvider(unittest.TestCase):
         # Get all segments from Speaker1
         all_segments = []
         for timestamp in [1500000000, 3500000000, 4500000000, 6750000000]:
-            segments = self.provider.get_diarization_data_by_timestamp(timestamp)
+            segments = self.provider.get_diarization_data_by_timestamp_ns(timestamp)
             all_segments.extend(segments)
 
         speaker1_segments = [seg for seg in all_segments if seg.speaker == "Speaker1"]
@@ -287,7 +287,7 @@ class TestDiarizationDataProvider(unittest.TestCase):
             self.assertEqual(start_times, sorted(start_times))
 
             # Verify functionality still works
-            result = unsorted_provider.get_diarization_data_by_timestamp(1500000000)
+            result = unsorted_provider.get_diarization_data_by_timestamp_ns(1500000000)
             self.assertEqual(len(result), 1)
             self.assertEqual(result[0].content, "First segment")
 
@@ -428,7 +428,7 @@ not_a_number,2000000000,Speaker1,Invalid start timestamp
             # Perform multiple searches
             for i in range(0, 50):
                 timestamp = i * 1000000000 + 500000000  # Middle of segments
-                result = large_provider.get_diarization_data_by_timestamp(timestamp)
+                result = large_provider.get_diarization_data_by_timestamp_ns(timestamp)
                 self.assertGreater(len(result), 0)  # Should find overlapping segments
 
             elapsed_time = time.time() - start_time
@@ -479,19 +479,19 @@ not_a_number,2000000000,Speaker1,Invalid start timestamp
             complex_provider = DiarizationDataProvider(complex_file.name)
 
             # Test timestamp at maximum overlap point (2250000000)
-            result = complex_provider.get_diarization_data_by_timestamp(2250000000)
+            result = complex_provider.get_diarization_data_by_timestamp_ns(2250000000)
             self.assertGreaterEqual(
                 len(result), 3
             )  # At least 3 speakers should overlap
 
             # Test exact boundary conditions
-            result = complex_provider.get_diarization_data_by_timestamp(2000000000)
+            result = complex_provider.get_diarization_data_by_timestamp_ns(2000000000)
             speakers = [seg.speaker for seg in result]
             self.assertIn("Speaker1", speakers)  # Should include Speaker1 (ongoing)
             self.assertIn("Speaker3", speakers)  # Should include Speaker3 (starting)
 
             # Test zero-duration segment handling
-            result = complex_provider.get_diarization_data_by_timestamp(2500000000)
+            result = complex_provider.get_diarization_data_by_timestamp_ns(2500000000)
             speakers = [seg.speaker for seg in result]
             # Should handle zero-duration segment appropriately
 

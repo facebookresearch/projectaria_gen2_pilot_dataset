@@ -830,7 +830,13 @@ class AriaGen2PilotDataProvider:
         """Return whether the diarization algorithm data provider exists."""
         return self.diarization_data_provider_ is not None
 
-    def get_diarization_data_by_timestamp(
+    def get_diarization_data_by_index(self, index: int) -> Optional[DiarizationData]:
+        """Get diarization data by index."""
+        if self.diarization_data_provider_ is None:
+            raise RuntimeError("Diarization data provider was not initialized.")
+        return self.diarization_data_provider_.get_diarization_data_by_index(index)
+
+    def get_diarization_data_by_timestamp_ns(
         self,
         timestamp_ns: int,
         time_domain: TimeDomain,
@@ -841,7 +847,7 @@ class AriaGen2PilotDataProvider:
         device_timestamp_ns = self._convert_time_domain_to_device_time_ns(
             time_domain, timestamp_ns
         )
-        return self.diarization_data_provider_.get_diarization_data_by_timestamp(
+        return self.diarization_data_provider_.get_diarization_data_by_timestamp_ns(
             device_timestamp_ns
         )
 

@@ -274,7 +274,7 @@ class AriaGen2PilotDataVisualizer:
                 # Plot diarization text overlay
                 if self.pd_provider.has_diarization_data():
                     diarization_data_list = (
-                        self.pd_provider.get_diarization_data_by_timestamp(
+                        self.pd_provider.get_diarization_data_by_timestamp_ns(
                             device_time_ns, TimeDomain.DEVICE_TIME
                         )
                     )
