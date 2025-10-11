@@ -16,6 +16,7 @@ from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_dataset_data_types im
     HandObjectInteractionData,
     HeartRateData,
 )
+from PIL import Image
 from projectaria_tools.core import mps
 from projectaria_tools.core.sensor_data import SensorDataType, TimeDomain
 from projectaria_tools.utils.rerun_helpers import (
@@ -118,7 +119,7 @@ class AriaGen2PilotDataVisualizer:
 
         depth_image_view = rrb.Spatial2DView(
             name="Depth",
-            origin="depth_image",
+            origin="world/stereo_depth_depth_camera",
         )
 
         rectified_slam_front_left_view = rrb.Spatial2DView(
@@ -234,6 +235,9 @@ class AriaGen2PilotDataVisualizer:
                 self.plot_image(
                     frame=frame,
                     camera_label=stream_label,
+                    jpeg_quality=self.config.rgb_jpeg_quality
+                    if stream_label == self.RGB_CAMERA_LABEL
+                    else self.config.depth_and_slam_jpeg_quality,
                 )
 
                 # Project and plot hand tracking result for each image frame
@@ -346,6 +350,7 @@ class AriaGen2PilotDataVisualizer:
         self,
         frame: np.array,
         camera_label: str,
+        jpeg_quality: int,
     ) -> None:
         """Plot image from a camera"""
         rr.log(
@@ -354,7 +359,7 @@ class AriaGen2PilotDataVisualizer:
         )
         rr.log(
             f"{camera_label}",
-            rr.Image(frame).compress(self.config.jpeg_quality),
+            rr.Image(frame).compress(jpeg_quality),
         )
 
     # === MPS related plotting functions ===
@@ -845,6 +850,16 @@ class AriaGen2PilotDataVisualizer:
             rr.Image(combined_rgba_overlay),
         )
 
+    def _subsample_image(self, image: np.ndarray, factor: int) -> np.ndarray:
+        """Subsample an image by a given factor using bilinear interpolation."""
+
+        image_f = Image.fromarray(image.astype(np.float32), mode="F")
+        new_size = (image.shape[1] // factor, image.shape[0] // factor)
+        resized_image = image_f.resize(new_size, resample=Image.Resampling.BILINEAR)
+        resized_array_f = np.array(resized_image, dtype=np.float32)
+        resized_array_uint16 = np.clip(resized_array_f, 0, 65535).astype(np.uint16)
+        return resized_array_uint16
+
     def plot_stereo_depth_3d_(
         self,
         depth_map: np.ndarray,
@@ -857,18 +872,32 @@ class AriaGen2PilotDataVisualizer:
         if depth_map is None or camera_intrinsics_and_pose is None:
             return
 
-        fx, fy = camera_intrinsics_and_pose.camera_projection.get_focal_lengths()
-        ux, uy = camera_intrinsics_and_pose.camera_projection.get_principal_point()
+        # Get original camera intrinsics
+        original_fx, original_fy = (
+            camera_intrinsics_and_pose.camera_projection.get_focal_lengths()
+        )
+        original_ux, original_uy = (
+            camera_intrinsics_and_pose.camera_projection.get_principal_point()
+        )
+        factor = self.config.depth_image_downsample_factor_3d
 
-        depth_image_height, depth_image_width = depth_map.shape
+        # Scale intrinsics to match the downsampled (subsampled) image size
+        scaled_fx = original_fx / factor
+        scaled_fy = original_fy / factor
+        scaled_ux = original_ux / factor
+        scaled_uy = original_uy / factor
 
-        # Set up pinhole camera model with world transform
+        subsampled_depth_map = self._subsample_image(depth_map, factor)
+
         rr.log(
             f"world/{plot_style.label}",
             rr.Pinhole(
-                resolution=[depth_image_width, depth_image_height],
-                focal_length=[fx, fy],
-                principal_point=[ux, uy],
+                resolution=[
+                    subsampled_depth_map.shape[1],
+                    subsampled_depth_map.shape[0],
+                ],
+                focal_length=[scaled_fx, scaled_fy],
+                principal_point=[scaled_ux, scaled_uy],
             ),
             static=True,
         )
@@ -886,32 +915,11 @@ class AriaGen2PilotDataVisualizer:
         rr.log(
             f"world/{plot_style.label}",
             rr.DepthImage(
-                depth_map,
+                subsampled_depth_map,
                 meter=DEPTH_IMAGE_SCALING,
                 colormap="Magma",
                 point_fill_ratio=plot_style.plot_3d_size,
             ),
-        )
-
-    def plot_stereo_depth_2d_(
-        self,
-        depth_map: np.ndarray,
-        rectified_slam_front_left_image: np.ndarray,
-    ) -> None:
-        """Project 2D depth map as 2D image."""
-        # Clear previous depth image
-        # Set up depth camera in world coordinate system
-        rr.log(
-            "depth_image",
-            rr.DepthImage(
-                depth_map,
-                meter=1000,
-                colormap="Magma",
-            ),
-        )
-        self.plot_image(
-            frame=rectified_slam_front_left_image,
-            camera_label="rectified_slam_front_left",
         )
 
     def plot_stereo_depth_data(
@@ -935,10 +943,6 @@ class AriaGen2PilotDataVisualizer:
             f"world/{plot_style.label}",
             rr.Clear.recursive(),
         )
-        rr.log(
-            f"world/{plot_style.label}",
-            rr.Clear.recursive(),
-        )
         if (
             depth_map is None
             or rectified_slam_front_left_image is None
@@ -947,5 +951,9 @@ class AriaGen2PilotDataVisualizer:
             > (self.rgb_frame_interval_ns / 2)
         ):
             return
-        self.plot_stereo_depth_2d_(depth_map, rectified_slam_front_left_image)
+        self.plot_image(
+            frame=rectified_slam_front_left_image,
+            camera_label="rectified_slam_front_left",
+            jpeg_quality=self.config.depth_and_slam_jpeg_quality,
+        )
         self.plot_stereo_depth_3d_(depth_map, camera_intrinsics_and_pose)

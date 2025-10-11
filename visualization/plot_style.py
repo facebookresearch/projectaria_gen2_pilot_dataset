@@ -96,9 +96,8 @@ _REGISTRY = {
     ),
     PlotEntity.STEREO_DEPTH: PlotStyle(
         label="stereo_depth_depth_camera",
-        plot_3d_size=0.005,
+        plot_3d_size=0.3,
     ),
-    # TODO: add initialization for all plot entities
 }
 
 REGISTRY = MappingProxyType(_REGISTRY)
