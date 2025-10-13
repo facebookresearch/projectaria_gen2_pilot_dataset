@@ -576,6 +576,22 @@ class AriaGen2PilotDataProvider:
             stream_id, time_ns, time_domain, time_query_options
         )
 
+    def get_vrs_interpolated_hand_pose_data(
+        self,
+        handtracking_stream_id: StreamId,
+        device_time_ns: int,
+        time_domain: TimeDomain,
+    ) -> Optional[mps.hand_tracking.HandTrackingResult]:
+        """Get hand pose data by timestamp."""
+        vrs_data_provider = self.vrs_data_provider_
+        if vrs_data_provider is None:
+            raise RuntimeError("VRS data provider was not initialized.")
+        if handtracking_stream_id not in vrs_data_provider.get_all_streams():
+            raise ValueError
+        return vrs_data_provider.get_interpolated_hand_pose_data(
+            handtracking_stream_id, device_time_ns, time_domain
+        )
+
     def get_vrs_als_data_by_time_ns(
         self,
         stream_id: StreamId,
