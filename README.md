@@ -31,6 +31,9 @@ python3 -m pip install --upgrade pip
 # Install the package with all dependencies
 python3 -m pip install projectaria-gen2-pilot-dataset'[all]'
 ```
+## Wiki
+
+Please see the full documentation on the [Aria Gen2 Pilot Dataset wiki page](https://facebookresearch.github.io/projectaria_tools/gen2/research-tools/dataset/pilot/content).
 
 ## Tutorials
 
