@@ -38,7 +38,7 @@ Get started with these comprehensive tutorials:
 - [VRS Data Loading](examples/tutorial_1_vrs_data_loading.ipynb) - Loading raw sensor data
 - [MPS Data Loading](examples/tutorial_2_mps_data_loading.ipynb) - Loading Machine Perception Services data
 - [Algorithm Data Loading](examples/tutorial_3_algorithm_data_loading.ipynb) - Loading algorithm output data
-- [Multiple Sequences Synchronization](examples/tutorial_4_multi_sequences_synchronization.ipynb) - Synchronizing data between multiple devices
+- [Multiple Sequences Timestamp Alignment](examples/tutorial_4_multi_sequences_timestamp_alignment.ipynb) - Synchronizing data between multiple devices
 
 ## Dataset Structure
 
