@@ -52,11 +52,17 @@ Each sequence contains:
 
 ## Visualization
 
-Launch the interactive viewer:
+Launch the interactive viewer for algorithm data:
 ```bash
 aria_gen2_pilot_dataset_viewer --sequence-path /path/to/sequence
 ```
+![Example algorithm data viewer](assets/algorithm_viz.png)
 
+Launch the interactive viewer for sensor data:
+```bash
+aria_rerun_viewer --vrs /path/to/sequence/video.vrs
+```
+![Example sensor data viewer](assets/sensors_viz.png)
 ## License
 
 This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0). See the [LICENSE](LICENSE) file for details.
