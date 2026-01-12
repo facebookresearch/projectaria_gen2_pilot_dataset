@@ -11,9 +11,7 @@ from typing import Dict
 import numpy as np
 import rerun as rr
 import rerun.blueprint as rrb
-
 from aria_gen2_pilot_dataset import AriaGen2PilotDataProvider
-
 from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_dataset_data_types import (
     BoundingBox3D,
     CameraIntrinsicsAndPose,
@@ -32,7 +30,6 @@ from rerun.blueprint.archetypes import LineGrid3D
 from tqdm import tqdm
 
 from . import plot_color
-
 from .aria_gen2_pilot_viewer_config import AriaGen2PilotViewerConfig
 from .plot_style import get_plot_style, PlotEntity, PlotStyle
 from .plot_utils import extract_bbox_projection_data, project_3d_bbox_to_2d_camera

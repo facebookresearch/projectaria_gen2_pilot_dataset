@@ -18,7 +18,6 @@ from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_data_file_keys import
 )
 from projectaria_tools.core import mps
 from projectaria_tools.core.calibration import DeviceCalibration
-
 from projectaria_tools.core.data_provider import (
     create_vrs_data_provider,
     VrsDataProvider,
@@ -50,7 +49,6 @@ from projectaria_tools.core.sensor_data import (
     TimeSyncMode,
     WifiBeaconData,
 )
-
 from projectaria_tools.core.stream_id import StreamId
 from projectaria_tools.projects.adt import InstanceInfo
 

@@ -8,7 +8,6 @@ import logging
 from typing import Dict, Optional
 
 from projectaria_tools.core.sensor_data import TimeQueryOptions
-
 from projectaria_tools.projects.adt import (
     AriaDigitalTwinDataPaths,
     AriaDigitalTwinDataProvider,

@@ -10,13 +10,11 @@ from typing import Dict, List, Optional
 
 import numpy as np
 from PIL import Image
-
 from projectaria_tools.core.sensor_data import TimeQueryOptions
 from tqdm import tqdm
 
 # Use self-contained RLE utilities instead of external pycocotools
 from . import rle_utils
-
 from .aria_gen2_pilot_dataset_data_types import (
     HandObjectInteractionData,
     HandObjectInteractionDataRaw,

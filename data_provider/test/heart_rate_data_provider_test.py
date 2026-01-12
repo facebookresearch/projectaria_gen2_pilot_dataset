@@ -11,7 +11,6 @@ import unittest
 from aria_gen2_pilot_dataset.data_provider.heart_rate_data_provider import (
     HeartRateDataProvider,
 )
-
 from projectaria_tools.core.sensor_data import TimeQueryOptions
 
 

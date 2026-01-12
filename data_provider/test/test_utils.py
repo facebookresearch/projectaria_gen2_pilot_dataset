@@ -11,7 +11,6 @@ import unittest
 from aria_gen2_pilot_dataset.data_provider.utils import (
     find_timestamp_index_by_time_query_option,
 )
-
 from projectaria_tools.core.sensor_data import TimeQueryOptions
 
 

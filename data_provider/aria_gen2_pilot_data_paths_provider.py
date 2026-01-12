@@ -25,7 +25,6 @@ from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_data_file_keys import
     VRS_FILE_NAME,
     VRS_HEALTH_CHECK_FILE,
 )
-
 from aria_gen2_pilot_dataset.data_provider.aria_gen2_pilot_data_paths import (
     AriaGen2PilotDataPaths,
 )

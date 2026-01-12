@@ -14,10 +14,8 @@ from dataclasses import dataclass
 from typing import List
 
 import numpy as np
-
 from projectaria_tools.core.calibration import CameraProjection
 from projectaria_tools.core.sophus import SE3
-
 from projectaria_tools.projects.adt import BoundingBox2dData, BoundingBox3dData
 
 
