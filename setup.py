@@ -46,7 +46,7 @@ setup(
         "Topic :: Multimedia :: Video",
     ],
     python_requires=">=3.8",
-    install_requires=["projectaria-tools==2.0.0", "pillow"],
+    install_requires=["projectaria-tools", "pillow"],
     extras_require={"all": ["jupyter", "rerun-notebook==0.22.1"]},
     entry_points={
         "console_scripts": [
