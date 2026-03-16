@@ -230,7 +230,7 @@ class AriaGen2PilotDataVisualizer:
 
         for data in tqdm(vrs_data_provider.deliver_queued_sensor_data(deliver_option)):
             device_time_ns = data.get_time_ns(TimeDomain.DEVICE_TIME)
-            rr.set_time_nanos("device_time", device_time_ns)
+            rr.set_time("device_time", duration=device_time_ns * 1e-9)
 
             # Extract frame from SensorData and log RGB image with overlays
             if data.sensor_data_type() == SensorDataType.IMAGE:
@@ -651,7 +651,7 @@ class AriaGen2PilotDataVisualizer:
         self.last_heart_rate_data = heart_rate_data
         rr.log(
             "heart_rate_bpm",
-            rr.Scalar(heart_rate_data.heart_rate_bpm),
+            rr.Scalars(heart_rate_data.heart_rate_bpm),
         )
 
     def plot_diarization_text_overlay(self, diarization_data_list: list):
