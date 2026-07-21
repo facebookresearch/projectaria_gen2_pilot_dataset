@@ -451,8 +451,9 @@ class AriaGen2PilotDataVisualizer:
         # Plot device pose
         rr.log(
             "world/device",
-            ToTransform3D(T_world_device, axis_length=0.05),
+            ToTransform3D(T_world_device),
         )
+        rr.log("world/device", rr.TransformAxes3D(length=0.05))
 
         # Plot accumulated trajectory
         if len(self.closed_loop_trajectory_pose_cache) > 1:
@@ -1007,10 +1008,9 @@ class AriaGen2PilotDataVisualizer:
         )
         rr.log(
             f"world/{plot_style.label}",
-            ToTransform3D(
-                camera_intrinsics_and_pose.transform_world_camera, axis_length=0.02
-            ),
+            ToTransform3D(camera_intrinsics_and_pose.transform_world_camera),
         )
+        rr.log(f"world/{plot_style.label}", rr.TransformAxes3D(length=0.02))
 
         # Define the scaling factor: depth data is in millimeters, ReRun expects meters, 1m = 1000mm
         DEPTH_IMAGE_SCALING = 1000
