@@ -1,0 +1,3 @@
+# setup.py reads version.txt at build time, and setuptools does not ship it in
+# the sdist by default -- without this, building a wheel from the sdist fails.
+include version.txt

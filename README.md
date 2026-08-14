@@ -29,7 +29,7 @@ source ~/projectaria_gen2_python_env/bin/activate
 python3 -m pip install --upgrade pip
 
 # Install the package with all dependencies
-python3 -m pip install projectaria-gen2-pilot-dataset'[all]'
+python3 -m pip install projectaria-gen2-pilot-dataset
 ```
 ## Wiki
 

@@ -1,0 +1,13 @@
+#
+# To build the sdist and wheel locally run
+#    python3 -m build --sdist --wheel --outdir dist
+#
+# This package is pure Python, so a single py3-none-any wheel covers every
+# platform -- there is no cibuildwheel matrix as in projectaria_tools.
+
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
