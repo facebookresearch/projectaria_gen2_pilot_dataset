@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import os
 from functools import partial
 from typing import Dict
 
@@ -33,6 +34,17 @@ from . import plot_color
 from .aria_gen2_pilot_viewer_config import AriaGen2PilotViewerConfig
 from .plot_style import get_plot_style, PlotEntity, PlotStyle
 from .plot_utils import extract_bbox_projection_data, project_3d_bbox_to_2d_camera
+
+# Class id reserved for "no annotation" in the HOI segmentation overlay. It is mapped to a fully
+# transparent colour in the annotation context; a plain RGBA `rr.Image` cannot express this,
+# because rerun paints an image child over its parent camera frame ignoring per-pixel alpha.
+HOI_BACKGROUND_CLASS_ID = 0
+
+HOI_CATEGORY_TO_PLOT_ENTITY = {
+    1: PlotEntity.HOI_LEFT_HAND,
+    2: PlotEntity.HOI_RIGHT_HAND,
+    3: PlotEntity.HOI_INTERACTING_OBJECT,
+}
 
 
 class AriaGen2PilotDataVisualizer:
@@ -104,7 +116,10 @@ class AriaGen2PilotDataVisualizer:
             rr.save(rrd_output_path)
         else:
             self.logger.info("Initializing Rerun visualization window...")
-            rr.init("AriaGen2PilotDataViewer", spawn=True)
+            rr.init("AriaGen2PilotDataViewer", spawn=False)
+            # RERUN_PATH is set by the :aria_gen2_pilot_dataset_viewer oxx_command_alias to the
+            # buck-built rerun-cli; without it rerun-sdk searches PATH and fails.
+            rr.spawn(executable_path=os.environ.get("RERUN_PATH"))
 
         # === Top Row Views ===
         rgb_view = rrb.Spatial2DView(
@@ -190,6 +205,10 @@ class AriaGen2PilotDataVisualizer:
 
         # Plot device extrinsics
         self.plot_device_extrinsics()
+
+        # Plot the HOI segmentation palette
+        if self.pd_provider.has_hoi_data():
+            self.plot_hoi_annotation_context()
 
         # Plot semidense point cloud
         if self.pd_provider.has_mps_data():
@@ -353,8 +372,17 @@ class AriaGen2PilotDataVisualizer:
             static=True,
         )
 
-    def _resize_image(self, image: np.ndarray, downsample_factor: int) -> np.ndarray:
-        """Downsample image by given factor using PIL, handles both regular and uint16 images."""
+    def _resize_image(
+        self,
+        image: np.ndarray,
+        downsample_factor: int,
+        resample: int = Image.LANCZOS,
+    ) -> np.ndarray:
+        """Downsample image by given factor using PIL, handles both regular and uint16 images.
+
+        Label images must pass `resample=Image.NEAREST`: interpolating class ids invents
+        categories that were never annotated.
+        """
         if downsample_factor <= 1:
             return image
 
@@ -366,12 +394,12 @@ class AriaGen2PilotDataVisualizer:
         # Handle uint16 images (not directly supported by PIL)
         if image.dtype == np.uint16:
             image_f = Image.fromarray(image.astype(np.float32), mode="F")
-            resized_image = image_f.resize(new_size, resample=Image.LANCZOS)
+            resized_image = image_f.resize(new_size, resample=resample)
             return np.clip(np.array(resized_image), 0, 65535).astype(np.uint16)
 
         # Handle regular images (uint8, RGB, etc.)
         pil_image = Image.fromarray(image)
-        return np.array(pil_image.resize(new_size, Image.LANCZOS))
+        return np.array(pil_image.resize(new_size, resample))
 
     def _get_camera_scale_factor(self, camera_label: str) -> float:
         """Get the scaling factor for overlays on this camera due to downsampling."""
@@ -898,6 +926,25 @@ class AriaGen2PilotDataVisualizer:
                 ),
             )
 
+    def plot_hoi_annotation_context(self) -> None:
+        """Map HOI class ids to colors for the segmentation overlay on the RGB camera."""
+        annotations = [
+            rr.AnnotationInfo(
+                id=HOI_BACKGROUND_CLASS_ID, label="background", color=(0, 0, 0, 0)
+            )
+        ]
+        for category_id, plot_entity in HOI_CATEGORY_TO_PLOT_ENTITY.items():
+            plot_style = get_plot_style(plot_entity)
+            annotations.append(
+                rr.AnnotationInfo(
+                    id=category_id,
+                    label=plot_style.label,
+                    # Alpha lives on the overlay's own opacity, not on the palette entry.
+                    color=tuple(plot_style.color[:3]),
+                )
+            )
+        rr.log(self.RGB_CAMERA_LABEL, rr.AnnotationContext(annotations), static=True)
+
     def plot_hand_object_interaction_data(
         self, hoi_data_list: list[HandObjectInteractionData], device_time_ns: int
     ):
@@ -915,12 +962,6 @@ class AriaGen2PilotDataVisualizer:
         ):
             return
 
-        category_to_plot_style = {
-            1: get_plot_style(PlotEntity.HOI_LEFT_HAND),
-            2: get_plot_style(PlotEntity.HOI_RIGHT_HAND),
-            3: get_plot_style(PlotEntity.HOI_INTERACTING_OBJECT),
-        }
-
         # Determine mask shape from the first valid mask
         mask_shape = next(
             (
@@ -935,34 +976,34 @@ class AriaGen2PilotDataVisualizer:
             # No valid masks found, nothing to plot
             return
 
-        # Initialize combined RGBA overlay
-        combined_rgba_overlay = np.zeros((*mask_shape, 4), dtype=np.uint8)
-
-        # Overlay each category's mask with its color
+        # Combine every category into one label image; colors come from the annotation context
+        combined_class_ids = np.full(
+            mask_shape, HOI_BACKGROUND_CLASS_ID, dtype=np.uint8
+        )
         for hoi_data in hoi_data_list:
             category_id = hoi_data.category_id
-            plot_style = category_to_plot_style.get(category_id, None)
-            if not plot_style:
+            if category_id not in HOI_CATEGORY_TO_PLOT_ENTITY:
                 raise ValueError(
                     f"Unknown category ID {category_id} for HOI data. Cannot plot."
                 )
             for mask in hoi_data.masks:
                 if mask is None or mask.size == 0:
                     continue
-                foreground_pixels = mask > 0
-                combined_rgba_overlay[foreground_pixels] = plot_style.color
+                combined_class_ids[mask > 0] = category_id
 
         # Apply downsampling to HOI overlay if needed
         downsample_scale = self._get_camera_scale_factor(self.RGB_CAMERA_LABEL)
         if downsample_scale != 1.0:
-            combined_rgba_overlay = self._resize_image(
-                combined_rgba_overlay, self.config.rgb_downsample_factor
+            combined_class_ids = self._resize_image(
+                combined_class_ids,
+                self.config.rgb_downsample_factor,
+                resample=Image.NEAREST,
             )
 
         # Log the combined segmentation overlay as an image
         rr.log(
             f"{self.RGB_CAMERA_LABEL}/hoi_overlay/combined",
-            rr.Image(combined_rgba_overlay),
+            rr.SegmentationImage(combined_class_ids),
         )
 
     def plot_stereo_depth_3d_(
